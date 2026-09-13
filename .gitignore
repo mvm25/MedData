@@ -27,3 +27,6 @@ gradlew.bat
 
 # OS
 Thumbs.db
+
+# Google Services
+google-services.json
