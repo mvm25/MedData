@@ -30,3 +30,11 @@ Thumbs.db
 
 # Google Services
 google-services.json
+
+# Android specific
+/local.properties
+/build
+/captures
+.externalNativeBuild
+.cxx
+app/google-services.json
