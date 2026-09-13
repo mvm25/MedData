@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1003475872547",
+    "project_id": "device-streaming-8c140c93",
+    "storage_bucket": "device-streaming-8c140c93.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1003475872547:android:6fe364ba5250635b933a96",
+        "android_client_info": {
+          "package_name": "com.example.expomeddata"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBO_6L4pL0zCxUw-EjGNsetsB5ewbDI7NQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
