@@ -1,0 +1,36 @@
+# Gradle
+.gradle/
+build/
+*.apk
+*.ap_
+
+# Android Studio
+.idea/
+*.iml
+*.iws
+*.ipr
+.DS_Store
+
+# Local properties
+local.properties
+
+# IDE
+*.class
+*.log
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+
+# Google Services
+google-services.json
+
+# Android specific
+/local.properties
+/build
+/captures
+.externalNativeBuild
+.cxx
+app/google-services.json

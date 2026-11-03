@@ -1,0 +1,58 @@
+{
+  "rules": {
+
+    "codigos": {
+      ".read": false,
+      ".write": false
+    },
+
+    "usuarios": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.hasChildren(['nombre', 'rol']) && (newData.child('rol').val() === 'padre' || (newData.child('rol').val() === 'profesor' && root.child('codigos').child('profesor').exists() && newData.child('codigoAcceso').val() === root.child('codigos').child('profesor').val()) || (newData.child('rol').val() === 'encargado_salud' && root.child('codigos').child('encargado_salud').exists() && newData.child('codigoAcceso').val() === root.child('codigos').child('encargado_salud').val()))"
+      }
+    },
+
+    "estudiantes": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('usuarios').child(auth.uid).child('rol').val() === 'encargado_salud'"
+    },
+    "padecimientos": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('usuarios').child(auth.uid).child('rol').val() === 'encargado_salud'"
+    },
+    "antecedentes": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('usuarios').child(auth.uid).child('rol').val() === 'encargado_salud'"
+    },
+    "vacunas": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('usuarios').child(auth.uid).child('rol').val() === 'encargado_salud'"
+    },
+    "citas_medicas": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('usuarios').child(auth.uid).child('rol').val() === 'encargado_salud'"
+    },
+    "autorizaciones": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('usuarios').child(auth.uid).child('rol').val() === 'encargado_salud'"
+    },
+
+    "solicitudes": {
+      ".read": "auth != null",
+      "$idSolicitud": {
+        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('rol').val() === 'encargado_salud' || (!data.exists() && newData.child('idPadre').val() === auth.uid) || data.child('idPadre').val() === auth.uid)",
+        ".validate": "data.exists() || (newData.child('tieneDictamen').val() === true && root.child('dictamenes').child($idSolicitud).exists())"
+      }
+    },
+
+    "dictamenes": {
+      "$idSolicitud": {
+        ".read": "auth != null && (root.child('usuarios').child(auth.uid).child('rol').val() === 'encargado_salud' || root.child('solicitudes').child($idSolicitud).child('idPadre').val() === auth.uid)",
+        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('rol').val() === 'encargado_salud' || !data.exists() || root.child('solicitudes').child($idSolicitud).child('idPadre').val() === auth.uid)",
+        ".validate": "newData.isString() && newData.val().length < 1500000"
+      }
+    }
+  }
+}
