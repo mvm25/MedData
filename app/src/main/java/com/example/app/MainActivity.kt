@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import com.example.app.chatbot.ChatbotOverlay
 import com.example.app.data.LocalAuth
 import com.example.app.data.LocalRepo
 import com.example.app.data.SesionUsuario
@@ -88,128 +89,141 @@ fun MedDataApp() {
         Toast.makeText(context, "Sesión cerrada", Toast.LENGTH_SHORT).show()
     }
 
-    when (pantalla) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        when (pantalla) {
 
-        "login" -> {
-            LoginScreen(
-                onLogin = {
-                    usuario = LocalAuth.currentUser
-                    pantalla = "inicio"
-                },
-                onRegister = { pantalla = "registro" }
-            )
-        }
+            "login" -> {
+                LoginScreen(
+                    onLogin = {
+                        usuario = LocalAuth.currentUser
+                        pantalla = "inicio"
+                    },
+                    onRegister = { pantalla = "registro" }
+                )
+            }
 
-        "registro" -> {
-            RegistroScreen(
-                onRegistroExitoso = {
-                    usuario = LocalAuth.currentUser
-                    pantalla = "inicio"
-                },
-                onVolver = { pantalla = "login" }
-            )
-        }
+            "registro" -> {
+                RegistroScreen(
+                    onRegistroExitoso = {
+                        usuario = LocalAuth.currentUser
+                        pantalla = "inicio"
+                    },
+                    onVolver = { pantalla = "login" }
+                )
+            }
 
-        "inicio" -> {
-            val perfil = appUsuario
+            "inicio" -> {
+                val perfil = appUsuario
 
-            if (perfil == null) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator()
-                        Spacer(modifier = Modifier.height(16.dp))
-                        TextButton(onClick = { cerrarSesion() }) {
-                            Text("Cerrar sesión (si tarda demasiado)")
+                if (perfil == null) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator()
+                            Spacer(modifier = Modifier.height(16.dp))
+                            TextButton(onClick = { cerrarSesion() }) {
+                                Text("Cerrar sesión (si tarda demasiado)")
+                            }
                         }
                     }
-                }
-            } else {
-                // Cada rol ve opciones distintas en su pantalla de inicio.
-                val opciones = when {
-                    // CRUD completo + revisión de solicitudes.
-                    perfil.esEncargadoSalud -> listOf("Estudiantes", "Solicitudes pendientes")
-                    // Solo lectura: ve estudiantes y su información médica.
-                    perfil.esProfesor -> listOf("Estudiantes")
-                    // Padre de familia: ve a sus hijos y envía solicitudes.
-                    else -> listOf("Mis hijos", "Enviar información", "Mis solicitudes")
-                }
+                } else {
+                    // Cada rol ve opciones distintas en su pantalla de inicio.
+                    val opciones = when {
+                        // CRUD completo + revisión de solicitudes.
+                        perfil.esEncargadoSalud -> listOf("Estudiantes", "Solicitudes pendientes")
+                        // Solo lectura: ve estudiantes y su información médica.
+                        perfil.esProfesor -> listOf("Estudiantes")
+                        // Padre de familia: ve a sus hijos y envía solicitudes.
+                        else -> listOf("Mis hijos", "Enviar información", "Mis solicitudes")
+                    }
 
-                HomeScreen(
-                    opciones = opciones,
-                    onSeleccionarOpcion = { opcion ->
-                        when (opcion) {
-                            "Estudiantes" -> pantalla = "estudiantes"
-                            "Solicitudes pendientes" -> pantalla = "solicitudes"
-                            "Mis hijos" -> { pestanaPadreInicial = 0; pantalla = "padre" }
-                            "Enviar información" -> { pestanaPadreInicial = 1; pantalla = "padre" }
-                            "Mis solicitudes" -> { pestanaPadreInicial = 2; pantalla = "padre" }
+                    HomeScreen(
+                        opciones = opciones,
+                        onSeleccionarOpcion = { opcion ->
+                            when (opcion) {
+                                "Estudiantes" -> pantalla = "estudiantes"
+                                "Solicitudes pendientes" -> pantalla = "solicitudes"
+                                "Mis hijos" -> { pestanaPadreInicial = 0; pantalla = "padre" }
+                                "Enviar información" -> { pestanaPadreInicial = 1; pantalla = "padre" }
+                                "Mis solicitudes" -> { pestanaPadreInicial = 2; pantalla = "padre" }
+                            }
+                        },
+                        onCuenta = { pantalla = "cuenta" },
+                        onCerrarSesion = { cerrarSesion() }
+                    )
+                }
+            }
+
+            "estudiantes" -> {
+                val perfil = appUsuario
+
+                if (perfil == null) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                } else {
+                    EstudiantesScreen(
+                        usuarioActual = perfil,
+                        onVolver = { pantalla = "inicio" },
+                        onSeleccionarEstudiante = { estudiante ->
+                            carneSeleccionado = estudiante.carne
+                            pantalla = "detalleEstudiante"
                         }
-                    },
-                    onCuenta = { pantalla = "cuenta" },
+                    )
+                }
+            }
+
+            "detalleEstudiante" -> {
+                val perfil = appUsuario
+
+                if (perfil != null) {
+                    EstudianteDetalleScreen(
+                        usuarioActual = perfil,
+                        carne = carneSeleccionado,
+                        onVolver = { pantalla = "estudiantes" }
+                    )
+                }
+            }
+
+            "solicitudes" -> {
+                val perfil = appUsuario
+
+                if (perfil != null) {
+                    SolicitudesScreen(
+                        usuarioActual = perfil,
+                        onVolver = { pantalla = "inicio" }
+                    )
+                }
+            }
+
+            "padre" -> {
+                val perfil = appUsuario
+
+                if (perfil != null) {
+                    PadreScreen(
+                        usuarioActual = perfil,
+                        pestanaInicial = pestanaPadreInicial,
+                        onVolver = { pantalla = "inicio" }
+                    )
+                }
+            }
+
+            "cuenta" -> {
+                CuentaScreen(
+                    usuario = usuario,
+                    onInicio = { pantalla = "inicio" },
                     onCerrarSesion = { cerrarSesion() }
                 )
             }
         }
 
-        "estudiantes" -> {
-            val perfil = appUsuario
-
-            if (perfil == null) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            } else {
-                EstudiantesScreen(
-                    usuarioActual = perfil,
-                    onVolver = { pantalla = "inicio" },
-                    onSeleccionarEstudiante = { estudiante ->
-                        carneSeleccionado = estudiante.carne
-                        pantalla = "detalleEstudiante"
-                    }
-                )
-            }
-        }
-
-        "detalleEstudiante" -> {
-            val perfil = appUsuario
-
-            if (perfil != null) {
-                EstudianteDetalleScreen(
-                    usuarioActual = perfil,
-                    carne = carneSeleccionado,
-                    onVolver = { pantalla = "estudiantes" }
-                )
-            }
-        }
-
-        "solicitudes" -> {
-            val perfil = appUsuario
-
-            if (perfil != null) {
-                SolicitudesScreen(
-                    usuarioActual = perfil,
-                    onVolver = { pantalla = "inicio" }
-                )
-            }
-        }
-
-        "padre" -> {
-            val perfil = appUsuario
-
-            if (perfil != null) {
-                PadreScreen(
-                    usuarioActual = perfil,
-                    pestanaInicial = pestanaPadreInicial,
-                    onVolver = { pantalla = "inicio" }
-                )
-            }
-        }
-
-        "cuenta" -> {
-            CuentaScreen(
-                usuario = usuario,
-                onInicio = { pantalla = "inicio" },
-                onCerrarSesion = { cerrarSesion() }
+        // Chatbot: círculo abajo a la derecha que abre el chat a la derecha de la pantalla.
+        // Solo aparece con sesión iniciada y respeta el rol del usuario (ver chatbot/ChatbotPermisos.kt).
+        val perfilChat = appUsuario
+        if (perfilChat != null && pantalla != "login" && pantalla != "registro") {
+            ChatbotOverlay(
+                usuario = perfilChat,
+                // Estas pantallas ya tienen un botón flotante abajo a la derecha: se sube el círculo.
+                margenInferior = if (pantalla == "estudiantes" || pantalla == "padre") 88.dp else 16.dp
             )
         }
     }
