@@ -41,6 +41,7 @@
 
     "solicitudes": {
       ".read": "auth != null",
+      ".indexOn": ["idPadre", "estado"],
       "$idSolicitud": {
         ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('rol').val() === 'encargado_salud' || (!data.exists() && newData.child('idPadre').val() === auth.uid) || data.child('idPadre').val() === auth.uid)",
         ".validate": "data.exists() || (newData.child('tieneDictamen').val() === true && root.child('dictamenes').child($idSolicitud).exists())"
