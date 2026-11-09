@@ -62,6 +62,35 @@ object LocalRepo {
             .addOnCompleteListener { onDone(it.isSuccessful) }
     }
 
+    // -------------------- ESTADÍSTICAS --------------------
+
+    /**
+     * Escucha TODOS los padecimientos de todos los estudiantes (padecimientos/{carne}/{id})
+     * y avisa cada vez que algo cambia: alta, edición o baja.
+     * Devuelve una función para dejar de escuchar; hay que llamarla al cerrar la pantalla.
+     * onResult recibe null si Firebase rechazó la lectura.
+     */
+    fun observarPadecimientosEnVivo(onResult: (List<Padecimiento>?) -> Unit): () -> Unit {
+        val ref = db.child("padecimientos")
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                onResult(
+                    snapshot.children.flatMap { porEstudiante ->
+                        porEstudiante.children.mapNotNull { hijo ->
+                            hijo.getValue(Padecimiento::class.java)?.let { pad ->
+                                if (pad.carne.isBlank()) pad.copy(carne = porEstudiante.key.orEmpty()) else pad
+                            }
+                        }
+                    }
+                )
+            }
+
+            override fun onCancelled(error: DatabaseError) { onResult(null) }
+        }
+        ref.addValueEventListener(listener)
+        return { ref.removeEventListener(listener) }
+    }
+
     // -------------------- FICHA MÉDICA COMPLETA --------------------
 
     fun obtenerFichaMedica(carne: String, onResult: (FichaMedica) -> Unit) {
