@@ -1,32 +1,40 @@
 package com.example.app.ui
 
+import android.app.DatePickerDialog
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.app.AzulOscuro
 import com.example.app.Beige
+import com.example.app.Gris
 import com.example.app.Rosado
 import com.example.app.TextoOscuro
 import com.example.app.model.CampoFormulario
 import com.example.app.model.EstadoSolicitud
+import java.util.Calendar
+import java.util.Locale
 
 /**
- * Formulario genérico: recibe una lista de CampoFormulario y dibuja
- * un OutlinedTextField por cada uno. Se usa en tres lugares distintos
- * (padre enviando una solicitud, encargado creando/editando un
- * registro real, encargado corrigiendo los datos de una solicitud
- * antes de aceptarla), así que solo existe una sola versión de este
- * formulario en todo el proyecto.
+ * Formulario genérico avanzado: soporta:
+ * - Selector de fecha (DatePickerDialog) para cualquier campo de fecha.
+ * - Cálculo automático de edad a partir de fecha de nacimiento.
+ * - Selector de secciones de secundaria de 7-A hasta 12-F.
+ * - Menús desplegables (Dropdowns) para sexo, tipo, estado y opciones.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FormularioCampos(
     titulo: String,
@@ -36,15 +44,25 @@ fun FormularioCampos(
     onCancelar: () -> Unit,
     onGuardar: (Map<String, String>) -> Unit,
     contenidoExtra: (@Composable () -> Unit)? = null,
-    // Se dibuja DESPUÉS de los campos (por ejemplo el adjunto del dictamen).
     contenidoFinal: (@Composable () -> Unit)? = null,
-    // Si es false el botón principal queda deshabilitado (no se puede continuar).
     botonGuardarHabilitado: Boolean = true
 ) {
     val valores = remember(campos) {
         val mapa = mutableStateMapOf<String, String>()
         campos.forEach { mapa[it.clave] = valoresIniciales[it.clave].orEmpty() }
         mapa
+    }
+
+    val context = LocalContext.current
+
+    val listaSecciones = remember {
+        val lista = mutableListOf<String>()
+        for (grado in 7..12) {
+            for (letra in 'A'..'F') {
+                lista.add("$grado-$letra")
+            }
+        }
+        lista
     }
 
     AlertDialog(
@@ -59,15 +77,190 @@ fun FormularioCampos(
                 contenidoExtra?.invoke()
 
                 campos.forEach { campo ->
-                    OutlinedTextField(
-                        value = valores[campo.clave] ?: "",
-                        onValueChange = { valores[campo.clave] = it },
-                        label = { Text(campo.etiqueta) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp),
-                        singleLine = true
-                    )
+                    val esFecha = campo.clave.contains("fecha", ignoreCase = true) || campo.clave == "proximaDosis"
+                    val esSeccion = campo.clave == "seccion"
+                    val esEdad = campo.clave == "edad"
+                    val opcionesEfectivas = if (campo.clave == "sexo" || campo.clave == "genero") {
+                        if (campo.opciones.isNotEmpty()) campo.opciones else listOf("Hombre", "Mujer")
+                    } else {
+                        campo.opciones
+                    }
+                    val tieneOpciones = opcionesEfectivas.isNotEmpty()
+
+                    when {
+                        tieneOpciones -> {
+                            var menuAbierto by remember { mutableStateOf(false) }
+                            val permiteEscribir = campo.clave == "carne"
+
+                            ExposedDropdownMenuBox(
+                                expanded = menuAbierto,
+                                onExpandedChange = { menuAbierto = it },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = valores[campo.clave] ?: "",
+                                    onValueChange = { valores[campo.clave] = it },
+                                    readOnly = !permiteEscribir,
+                                    label = { Text(campo.etiqueta) },
+                                    placeholder = if (campo.placeholder.isNotBlank()) {
+                                        { Text(campo.placeholder, color = Gris) }
+                                    } else null,
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = menuAbierto) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .menuAnchor(),
+                                    singleLine = true
+                                )
+
+                                ExposedDropdownMenu(
+                                    expanded = menuAbierto,
+                                    onDismissRequest = { menuAbierto = false }
+                                ) {
+                                    opcionesEfectivas.forEach { opcion ->
+                                        DropdownMenuItem(
+                                            text = { Text(opcion) },
+                                            onClick = {
+                                                valores[campo.clave] = opcion
+                                                menuAbierto = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        esSeccion -> {
+                            var menuSeccionAbierto by remember { mutableStateOf(false) }
+
+                            ExposedDropdownMenuBox(
+                                expanded = menuSeccionAbierto,
+                                onExpandedChange = { menuSeccionAbierto = it },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = valores[campo.clave] ?: "",
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    label = { Text(campo.etiqueta) },
+                                    placeholder = { Text("Selecciona sección (7-A a 12-F)", color = Gris) },
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = menuSeccionAbierto) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .menuAnchor(),
+                                    singleLine = true
+                                )
+
+                                ExposedDropdownMenu(
+                                    expanded = menuSeccionAbierto,
+                                    onDismissRequest = { menuSeccionAbierto = false }
+                                ) {
+                                    listaSecciones.forEach { sec ->
+                                        DropdownMenuItem(
+                                            text = { Text(sec) },
+                                            onClick = {
+                                                valores[campo.clave] = sec
+                                                menuSeccionAbierto = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        esFecha -> {
+                            val calendario = Calendar.getInstance()
+                            val datePickerDialog = DatePickerDialog(
+                                context,
+                                { _, anio, mes, dia ->
+                                    val fechaFormateada = String.format(Locale.getDefault(), "%02d/%02d/%04d", dia, mes + 1, anio)
+                                    valores[campo.clave] = fechaFormateada
+
+                                    if (campo.clave == "fechaNacimiento") {
+                                        val anioActual = Calendar.getInstance().get(Calendar.YEAR)
+                                        val edadCalculada = (anioActual - anio).coerceAtLeast(0)
+                                        valores["edad"] = edadCalculada.toString()
+
+                                        val gradoSugerido = when {
+                                            edadCalculada <= 13 -> 7
+                                            edadCalculada == 14 -> 8
+                                            edadCalculada == 15 -> 9
+                                            edadCalculada == 16 -> 10
+                                            edadCalculada == 17 -> 11
+                                            else -> 12
+                                        }
+                                        if (valores["seccion"].isNullOrBlank()) {
+                                            valores["seccion"] = "$gradoSugerido-A"
+                                        }
+                                    }
+                                },
+                                calendario.get(Calendar.YEAR),
+                                calendario.get(Calendar.MONTH),
+                                calendario.get(Calendar.DAY_OF_MONTH)
+                            )
+
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { datePickerDialog.show() }
+                            ) {
+                                OutlinedTextField(
+                                    value = valores[campo.clave] ?: "",
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    enabled = false,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        disabledTextColor = TextoOscuro,
+                                        disabledBorderColor = MaterialTheme.colorScheme.outline,
+                                        disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                    ),
+                                    label = { Text(campo.etiqueta) },
+                                    placeholder = { Text(if (campo.placeholder.isNotBlank()) campo.placeholder else "DD/MM/AAAA", color = Gris) },
+                                    trailingIcon = {
+                                        IconButton(onClick = { datePickerDialog.show() }) {
+                                            Icon(Icons.Default.DateRange, contentDescription = "Seleccionar fecha", tint = AzulOscuro)
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp),
+                                    singleLine = true
+                                )
+                            }
+                        }
+
+                        esEdad -> {
+                            OutlinedTextField(
+                                value = valores[campo.clave] ?: "",
+                                onValueChange = { valores[campo.clave] = it },
+                                readOnly = true,
+                                label = { Text(campo.etiqueta) },
+                                placeholder = { Text("Se calcula con la fecha de nacimiento", color = Gris) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                singleLine = true
+                            )
+                        }
+
+                        else -> {
+                            OutlinedTextField(
+                                value = valores[campo.clave] ?: "",
+                                onValueChange = { valores[campo.clave] = it },
+                                label = { Text(campo.etiqueta) },
+                                placeholder = if (campo.placeholder.isNotBlank()) {
+                                    { Text(campo.placeholder, color = Gris) }
+                                } else null,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                singleLine = true
+                            )
+                        }
+                    }
                 }
 
                 contenidoFinal?.invoke()
