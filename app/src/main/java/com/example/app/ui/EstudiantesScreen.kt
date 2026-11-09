@@ -47,6 +47,7 @@ fun EstudiantesScreen(
 ) {
     var cargando by remember { mutableStateOf(true) }
     var estudiantes by remember { mutableStateOf(listOf<Estudiante>()) }
+    var carnesDePadres by remember { mutableStateOf(listOf<String>()) }
     var busqueda by remember { mutableStateOf("") }
     var mostrarFormularioNuevo by remember { mutableStateOf(false) }
     var mostrarGrafico by remember { mutableStateOf(false) }
@@ -55,6 +56,9 @@ fun EstudiantesScreen(
         LocalRepo.observarEstudiantes { lista ->
             estudiantes = lista
             cargando = false
+        }
+        LocalRepo.observarCarnesRegistradosPorPadres { lista ->
+            carnesDePadres = lista
         }
     }
 
@@ -170,27 +174,39 @@ fun EstudiantesScreen(
     }
 
     if (mostrarFormularioNuevo) {
+        val carnesSugeridos = carnesDePadres.map { car ->
+            if (car in estudiantes.map { e -> e.carne }) "$car (Ya en sistema)" else "$car (Registrado por encargado legal)"
+        }
+
         FormularioCampos(
             titulo = "Nuevo estudiante",
             campos = listOf(
-                CampoFormulario("carne", "Carné"),
+                CampoFormulario(
+                    clave = "carne",
+                    etiqueta = "Carné / Cédula del estudiante",
+                    placeholder = "Ej: 2022171",
+                    opciones = carnesSugeridos
+                ),
                 CampoFormulario("nombre", "Nombre"),
                 CampoFormulario("apellido", "Apellido"),
                 CampoFormulario("correo", "Correo"),
                 CampoFormulario("telefono", "Teléfono"),
-                CampoFormulario("edad", "Edad"),
-                CampoFormulario("sexo", "Sexo"),
-                CampoFormulario("seccion", "Sección")
+                CampoFormulario("fechaNacimiento", "Fecha de nacimiento", placeholder = "20/10/2010"),
+                CampoFormulario("edad", "Edad (calculada)"),
+                CampoFormulario("seccion", "Sección"),
+                CampoFormulario("sexo", "Sexo", opciones = listOf("Hombre", "Mujer"))
             ),
             onCancelar = { mostrarFormularioNuevo = false },
             onGuardar = { campos ->
+                val carneLimpio = campos["carne"].orEmpty().split(" ").firstOrNull()?.trim().orEmpty()
                 val estudiante = Estudiante(
-                    carne = campos["carne"].orEmpty(),
+                    carne = carneLimpio,
                     nombre = campos["nombre"].orEmpty(),
                     apellido = campos["apellido"].orEmpty(),
                     correo = campos["correo"].orEmpty(),
                     telefono = campos["telefono"].orEmpty(),
                     edad = campos["edad"]?.toIntOrNull() ?: 0,
+                    fechaNacimiento = campos["fechaNacimiento"].orEmpty(),
                     sexo = campos["sexo"].orEmpty(),
                     seccion = campos["seccion"].orEmpty()
                 )

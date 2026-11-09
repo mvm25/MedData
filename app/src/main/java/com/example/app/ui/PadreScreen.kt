@@ -1,13 +1,14 @@
 package com.example.app.ui
 
 import android.widget.Toast
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -15,13 +16,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.app.AzulOscuro
 import com.example.app.Azul
+import com.example.app.Beige
 import com.example.app.Fondo
 import com.example.app.Gris
+import com.example.app.R
 import com.example.app.Rosado
 import com.example.app.TextoOscuro
 import com.example.app.data.LocalRepo
@@ -32,12 +36,11 @@ import com.example.app.model.*
 //
 // Tres pestañas:
 //  0. Mis hijos: solo lectura, ve los datos de sus hijos.
-//  1. Enviar información: llena un formulario para pedir que
-//     se agregue o corrija algo (queda como Solicitud
-//     pendiente, no se guarda directo).
-//  2. Mis solicitudes: ve el estado de lo que ha enviado. Si
-//     el Encargado de Salud la devolvió, puede corregir y
-//     volver a enviarla.
+//  1. Enviar información: tarjetas con los 6 formularios.
+//     Dictamen obligatorio solo en padecimientos, antecedentes
+//     y vacunas; opcional en el resto.
+//  2. Mis solicitudes: ve el estado de lo enviado y puede
+//     corregir devueltas.
 // ======================================================
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -50,7 +53,7 @@ fun PadreScreen(
     var pestana by remember { mutableIntStateOf(pestanaInicial) }
     var hijos by remember { mutableStateOf(listOf<Estudiante>()) }
     var solicitudes by remember { mutableStateOf(listOf<Solicitud>()) }
-    var mostrarFormularioNuevaSolicitud by remember { mutableStateOf(false) }
+    var tipoSolicitudApertura by remember { mutableStateOf<String?>(null) }
     var solicitudAReenviar by remember { mutableStateOf<Solicitud?>(null) }
 
     fun recargar() {
@@ -70,22 +73,21 @@ fun PadreScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                     }
                 },
+                actions = {
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_icon),
+                        contentDescription = "Logo MedData",
+                        modifier = Modifier
+                            .padding(end = 12.dp)
+                            .size(36.dp)
+                    )
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.White,
                     titleContentColor = TextoOscuro,
                     navigationIconContentColor = AzulOscuro
                 )
             )
-        },
-        floatingActionButton = {
-            if (pestana == 1) {
-                FloatingActionButton(
-                    onClick = { mostrarFormularioNuevaSolicitud = true },
-                    containerColor = Azul
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Enviar información", tint = Color.White)
-                }
-            }
         }
     ) { padding ->
 
@@ -106,7 +108,10 @@ fun PadreScreen(
 
             when (pestana) {
                 0 -> ListaHijos(hijos)
-                1 -> PestañaEnviarInformacion(hijos)
+                1 -> PestañaEnviarInformacion(
+                    hijos = hijos,
+                    onSeleccionarTipo = { tipoSolicitudApertura = it }
+                )
                 2 -> ListaSolicitudesDelPadre(
                     solicitudes = solicitudes,
                     onCorregir = { solicitudAReenviar = it }
@@ -115,22 +120,26 @@ fun PadreScreen(
         }
     }
 
-    if (mostrarFormularioNuevaSolicitud) {
+    tipoSolicitudApertura?.let { tipo ->
         DialogoNuevaSolicitud(
+            tipoInicial = tipo,
             hijos = hijos,
             usuarioActual = usuarioActual,
-            onCancelar = { mostrarFormularioNuevaSolicitud = false },
+            onCancelar = { tipoSolicitudApertura = null },
             onEnviada = {
-                mostrarFormularioNuevaSolicitud = false
+                tipoSolicitudApertura = null
                 recargar()
             }
         )
     }
 
     solicitudAReenviar?.let { solicitud ->
-        // Si el encargado devolvió la solicitud porque el dictamen no se leía,
-        // aquí se puede mandar uno nuevo. Si no se toca, se queda el anterior.
         var nuevoDictamen by remember(solicitud.idSolicitud) { mutableStateOf<String?>(null) }
+        val requiereDictamen = solicitud.tipo in listOf(
+            TipoSolicitud.PADECIMIENTO,
+            TipoSolicitud.ANTECEDENTE,
+            TipoSolicitud.VACUNA
+        )
 
         FormularioCampos(
             titulo = "Corregir y reenviar",
@@ -148,7 +157,7 @@ fun PadreScreen(
                 SelectorDictamen(
                     dictamenBase64 = nuevoDictamen,
                     onDictamenElegido = { nuevoDictamen = it },
-                    obligatorio = false
+                    obligatorio = requiereDictamen && !solicitud.tieneDictamen
                 )
             },
             contenidoExtra = {
@@ -202,16 +211,108 @@ private fun ListaHijos(hijos: List<Estudiante>) {
 }
 
 @Composable
-private fun PestañaEnviarInformacion(hijos: List<Estudiante>) {
-    Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
-        Text(
-            if (hijos.isEmpty())
-                "No hay ningún estudiante asociado a esta cuenta. Contacta al colegio para que te vinculen con tu hijo/a."
-            else
-                "Usa el botón de abajo para enviar información nueva o corregir un dato de tu hijo/a.\nUn encargado de salud la va a revisar antes de que quede guardada.",
-            color = Gris,
-            fontSize = 14.sp
-        )
+private fun PestañaEnviarInformacion(
+    hijos: List<Estudiante>,
+    onSeleccionarTipo: (String) -> Unit
+) {
+    if (hijos.isEmpty()) {
+        Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+            Text(
+                "No hay ningún estudiante asociado a esta cuenta todavía. Contacta al colegio para que te vinculen con tu hijo/a.",
+                color = Gris,
+                fontSize = 14.sp
+            )
+        }
+        return
+    }
+
+    val opcionesFormularios = listOf(
+        Triple(TipoSolicitud.PADECIMIENTO, "Padecimiento", "Informa sobre padecimientos, alergias o condiciones médicas."),
+        Triple(TipoSolicitud.ANTECEDENTE, "Antecedente médico", "Registra cirugías, fracturas, alergias o antecedentes familiares."),
+        Triple(TipoSolicitud.VACUNA, "Vacuna", "Envía comprobante de vacunas aplicadas o dosis pendientes."),
+        Triple(TipoSolicitud.CITA_MEDICA, "Cita médica", "Informa sobre citas de medicina general, psicología, nutrición, etc."),
+        Triple(TipoSolicitud.AUTORIZACION_MEDICAMENTO, "Autorización de medicamento", "Autoriza la administración de medicamentos en el colegio."),
+        Triple(TipoSolicitud.DATOS_GENERALES, "Datos generales del estudiante", "Solicita actualizar teléfono, correo, sección o datos del estudiante.")
+    )
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        item {
+            Text(
+                text = "¿Qué deseas enviar?",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextoOscuro
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Selecciona el formulario que deseas completar:",
+                color = Gris,
+                fontSize = 13.sp
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+
+        items(opcionesFormularios) { (tipo, titulo, descripcion) ->
+            val requiereDictamen = tipo in listOf(TipoSolicitud.PADECIMIENTO, TipoSolicitud.ANTECEDENTE, TipoSolicitud.VACUNA)
+
+            Card(
+                onClick = { onSeleccionarTipo(tipo) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 6.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Spacer(
+                        modifier = Modifier
+                            .width(6.dp)
+                            .height(50.dp)
+                            .background(
+                                when (tipo) {
+                                    TipoSolicitud.PADECIMIENTO, TipoSolicitud.ANTECEDENTE, TipoSolicitud.VACUNA -> Azul
+                                    else -> Beige
+                                },
+                                RoundedCornerShape(10.dp)
+                            )
+                    )
+
+                    Spacer(modifier = Modifier.width(14.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = titulo,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextoOscuro
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = descripcion,
+                            fontSize = 12.sp,
+                            color = Gris
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = if (requiereDictamen) "Dictamen médico obligatorio" else "Dictamen médico opcional",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = if (requiereDictamen) AzulOscuro else Rosado
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -277,33 +378,50 @@ private fun ListaSolicitudesDelPadre(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DialogoNuevaSolicitud(
+    tipoInicial: String,
     hijos: List<Estudiante>,
     usuarioActual: Usuario,
     onCancelar: () -> Unit,
     onEnviada: () -> Unit
 ) {
-    var carneElegido by remember { mutableStateOf(hijos.firstOrNull()?.carne.orEmpty()) }
-    var tipoElegido by remember { mutableStateOf(TipoSolicitud.PADECIMIENTO) }
+    var carneElegido by remember(hijos, usuarioActual) {
+        mutableStateOf(
+            hijos.firstOrNull()?.carne
+                ?: usuarioActual.carnesHijos.firstOrNull().orEmpty()
+        )
+    }
+    var tipoElegido by remember(tipoInicial) { mutableStateOf(tipoInicial) }
     var menuHijoAbierto by remember { mutableStateOf(false) }
     var menuTipoAbierto by remember { mutableStateOf(false) }
 
+    LaunchedEffect(hijos, usuarioActual) {
+        if (carneElegido.isBlank()) {
+            carneElegido = hijos.firstOrNull()?.carne
+                ?: usuarioActual.carnesHijos.firstOrNull().orEmpty()
+        }
+    }
+
     val context = LocalContext.current
 
-    // Imagen del dictamen médico (Base64). Mientras sea null no se puede enviar.
+    // El dictamen solo es OBLIGATORIO en Padecimiento, Antecedente y Vacuna.
+    val requiereDictamenObligatorio = tipoElegido in listOf(
+        TipoSolicitud.PADECIMIENTO,
+        TipoSolicitud.ANTECEDENTE,
+        TipoSolicitud.VACUNA
+    )
+
     var dictamen by remember { mutableStateOf<String?>(null) }
     var enviando by remember { mutableStateOf(false) }
 
     FormularioCampos(
-        titulo = "Enviar información",
+        titulo = "Enviar ${CatalogoCampos.etiquetaTipo(tipoElegido).lowercase()}",
         campos = CatalogoCampos.camposPara(tipoElegido),
         textoBotonPrincipal = if (enviando) "Enviando..." else "Enviar",
         onCancelar = onCancelar,
-        botonGuardarHabilitado = dictamen != null && carneElegido.isNotBlank() && !enviando,
+        botonGuardarHabilitado = (!requiereDictamenObligatorio || dictamen != null) && carneElegido.isNotBlank() && !enviando,
         onGuardar = { campos ->
-            val imagen = dictamen
-            // Doble seguro: aunque el botón ya está deshabilitado, aquí tampoco
-            // se envía nada si falta la imagen.
-            if (imagen != null && carneElegido.isNotBlank() && !enviando) {
+            val imagen = dictamen.orEmpty()
+            if ((!requiereDictamenObligatorio || imagen.isNotBlank()) && carneElegido.isNotBlank() && !enviando) {
                 enviando = true
                 LocalRepo.crearSolicitud(
                     Solicitud(
@@ -311,7 +429,8 @@ private fun DialogoNuevaSolicitud(
                         idPadre = usuarioActual.idUsuario,
                         nombrePadre = usuarioActual.nombre,
                         tipo = tipoElegido,
-                        campos = campos
+                        campos = campos,
+                        tieneDictamen = imagen.isNotBlank()
                     ),
                     imagen
                 ) { exito ->
@@ -332,7 +451,7 @@ private fun DialogoNuevaSolicitud(
             SelectorDictamen(
                 dictamenBase64 = dictamen,
                 onDictamenElegido = { dictamen = it },
-                obligatorio = true
+                obligatorio = requiereDictamenObligatorio
             )
         },
         contenidoExtra = {
@@ -342,7 +461,7 @@ private fun DialogoNuevaSolicitud(
                     onExpandedChange = { menuHijoAbierto = it }
                 ) {
                     OutlinedTextField(
-                        value = hijos.find { it.carne == carneElegido }?.nombreCompleto ?: "Selecciona un hijo/a",
+                        value = hijos.find { it.carne == carneElegido }?.nombreCompleto ?: "Carné: $carneElegido",
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Estudiante") },
@@ -352,7 +471,7 @@ private fun DialogoNuevaSolicitud(
                     ExposedDropdownMenu(expanded = menuHijoAbierto, onDismissRequest = { menuHijoAbierto = false }) {
                         hijos.forEach { hijo ->
                             DropdownMenuItem(
-                                text = { Text(hijo.nombreCompleto) },
+                                text = { Text("${hijo.nombreCompleto} (${hijo.carne})") },
                                 onClick = {
                                     carneElegido = hijo.carne
                                     menuHijoAbierto = false
@@ -372,7 +491,7 @@ private fun DialogoNuevaSolicitud(
                     value = CatalogoCampos.etiquetaTipo(tipoElegido),
                     onValueChange = {},
                     readOnly = true,
-                    label = { Text("¿Qué quieres enviar?") },
+                    label = { Text("Formulario seleccionado") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = menuTipoAbierto) },
                     modifier = Modifier.fillMaxWidth().menuAnchor()
                 )

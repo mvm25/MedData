@@ -62,6 +62,24 @@ object LocalRepo {
             .addOnCompleteListener { onDone(it.isSuccessful) }
     }
 
+    /** Busca todos los carnés/cédulas que los padres hayan registrado al crear su cuenta. */
+    fun observarCarnesRegistradosPorPadres(onResult: (List<String>) -> Unit) {
+        db.child("usuarios")
+            .addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val carnes = snapshot.children.mapNotNull { it.getValue(Usuario::class.java) }
+                        .filter { it.esPadre }
+                        .flatMap { it.carnesHijos }
+                        .map { it.trim() }
+                        .filter { it.isNotBlank() }
+                        .distinct()
+                        .sorted()
+                    onResult(carnes)
+                }
+                override fun onCancelled(error: DatabaseError) { onResult(emptyList()) }
+            })
+    }
+
     // -------------------- ESTADÍSTICAS --------------------
 
     /**

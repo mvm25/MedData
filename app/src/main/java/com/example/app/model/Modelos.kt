@@ -64,6 +64,7 @@ data class Estudiante(
     val correo: String = "",
     val telefono: String = "",
     val edad: Int = 0,
+    val fechaNacimiento: String = "",
     val sexo: String = "",
     val seccion: String = ""
 ) {
@@ -183,10 +184,12 @@ data class Solicitud(
     val tieneDictamen: Boolean = false
 )
 
-/** Describe un campo de un formulario dinámico (clave interna + texto que ve el usuario). */
+/** Describe un campo de un formulario dinámico (clave interna + texto que ve el usuario + ejemplo + opciones). */
 data class CampoFormulario(
     val clave: String,
-    val etiqueta: String
+    val etiqueta: String,
+    val placeholder: String = "",
+    val opciones: List<String> = emptyList()
 )
 
 /**
@@ -202,48 +205,49 @@ object CatalogoCampos {
 
         TipoSolicitud.PADECIMIENTO -> listOf(
             CampoFormulario("nombre", "Nombre del padecimiento"),
-            CampoFormulario("tipo", "Tipo"),
-            CampoFormulario("fechaDiagnostico", "Fecha de diagnóstico"),
-            CampoFormulario("estado", "Estado"),
+            CampoFormulario("tipo", "Tipo", opciones = listOf("Alergia", "Enfermedad Crónica", "Enfermedad Aguda", "Lesión / Condición Física", "Condición Congénita", "Otro")),
+            CampoFormulario("fechaDiagnostico", "Fecha de diagnóstico", placeholder = "20/10/2024"),
+            CampoFormulario("estado", "Estado", opciones = listOf("Activo", "En tratamiento", "Controlado", "Inactivo / Curado")),
             CampoFormulario("tratamiento", "Tratamiento"),
             CampoFormulario("observaciones", "Observaciones")
         )
 
         TipoSolicitud.ANTECEDENTE -> listOf(
-            CampoFormulario("tipo", "Tipo de antecedente"),
+            CampoFormulario("tipo", "Tipo de antecedente", opciones = listOf("Familiar", "Quirúrgico (Cirugías)", "Alergias", "Patológico", "Traumático (Fracturas/Golpes)", "Otro")),
             CampoFormulario("descripcion", "Descripción"),
-            CampoFormulario("fecha", "Fecha"),
+            CampoFormulario("fecha", "Fecha", placeholder = "20/10/2024"),
             CampoFormulario("observaciones", "Observaciones")
         )
 
         TipoSolicitud.VACUNA -> listOf(
             CampoFormulario("nombre", "Nombre de la vacuna"),
             CampoFormulario("enfermedad", "Enfermedad que previene"),
-            CampoFormulario("fechaAplicacion", "Fecha de aplicación"),
-            CampoFormulario("proximaDosis", "Próxima dosis"),
+            CampoFormulario("fechaAplicacion", "Fecha de aplicación", placeholder = "20/10/2024"),
+            CampoFormulario("proximaDosis", "Próxima dosis", placeholder = "20/10/2024"),
             CampoFormulario("lote", "Lote"),
-            CampoFormulario("estado", "Estado")
+            CampoFormulario("estado", "Estado", opciones = listOf("Aplicada / Esquema completo", "Dosis pendiente", "Refuerzo pendiente"))
         )
 
         TipoSolicitud.CITA_MEDICA -> listOf(
-            CampoFormulario("tipo", "Tipo (mental / física / nutricional)"),
+            CampoFormulario("tipo", "Tipo de cita", opciones = listOf("Física / Medicina General", "Salud Mental / Psicología", "Nutrición", "Odontología", "Enfermería")),
             CampoFormulario("motivo", "Motivo"),
-            CampoFormulario("fecha", "Fecha"),
+            CampoFormulario("fecha", "Fecha", placeholder = "20/10/2024"),
             CampoFormulario("observaciones", "Observaciones")
         )
 
         TipoSolicitud.AUTORIZACION_MEDICAMENTO -> listOf(
             CampoFormulario("medicamento", "Medicamento"),
             CampoFormulario("motivo", "Motivo"),
-            CampoFormulario("autorizado", "¿Autorizado? (si / no)")
+            CampoFormulario("autorizado", "¿Autorizado por encargado?", opciones = listOf("Sí", "No"))
         )
 
         TipoSolicitud.DATOS_GENERALES -> listOf(
             CampoFormulario("telefono", "Teléfono"),
             CampoFormulario("correo", "Correo"),
+            CampoFormulario("fechaNacimiento", "Fecha de nacimiento", placeholder = "20/10/2010"),
+            CampoFormulario("edad", "Edad (calculada)"),
             CampoFormulario("seccion", "Sección"),
-            CampoFormulario("sexo", "Sexo"),
-            CampoFormulario("edad", "Edad")
+            CampoFormulario("sexo", "Sexo", opciones = listOf("Hombre", "Mujer"))
         )
 
         else -> emptyList()
