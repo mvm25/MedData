@@ -1,5 +1,6 @@
 package com.example.app.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,6 +12,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PieChart
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -47,6 +49,7 @@ fun EstudiantesScreen(
     var estudiantes by remember { mutableStateOf(listOf<Estudiante>()) }
     var busqueda by remember { mutableStateOf("") }
     var mostrarFormularioNuevo by remember { mutableStateOf(false) }
+    var mostrarGrafico by remember { mutableStateOf(false) }
 
     fun recargar() {
         LocalRepo.observarEstudiantes { lista ->
@@ -61,6 +64,13 @@ fun EstudiantesScreen(
         it.nombreCompleto.contains(busqueda, ignoreCase = true) ||
             it.carne.contains(busqueda, ignoreCase = true) ||
             it.seccion.contains(busqueda, ignoreCase = true)
+    }
+
+    // Gráfico de padecimientos: solo para el Encargado de Salud.
+    if (mostrarGrafico && usuarioActual.esEncargadoSalud) {
+        BackHandler { mostrarGrafico = false }
+        GraficoPadecimientosScreen(onVolver = { mostrarGrafico = false })
+        return
     }
 
     Scaffold(
@@ -100,15 +110,37 @@ fun EstudiantesScreen(
                 .padding(16.dp)
         ) {
 
-            OutlinedTextField(
-                value = busqueda,
-                onValueChange = { busqueda = it },
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Buscar por nombre, carné o sección") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = AzulOscuro) },
-                singleLine = true,
-                shape = RoundedCornerShape(16.dp)
-            )
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = busqueda,
+                    onValueChange = { busqueda = it },
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text("Buscar por nombre, carné o sección") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = AzulOscuro) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp)
+                )
+
+                // Botón del gráfico de padecimientos: solo lo ve el Encargado de Salud.
+                if (usuarioActual.esEncargadoSalud) {
+                    Spacer(Modifier.width(8.dp))
+                    FilledIconButton(
+                        onClick = { mostrarGrafico = true },
+                        modifier = Modifier.size(56.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = IconButtonDefaults.filledIconButtonColors(containerColor = AzulOscuro)
+                    ) {
+                        Icon(
+                            Icons.Default.PieChart,
+                            contentDescription = "Ver gráfico de padecimientos",
+                            tint = Color.White
+                        )
+                    }
+                }
+            }
 
             Spacer(Modifier.height(12.dp))
 
